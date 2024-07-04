@@ -1,18 +1,67 @@
 #include <Arduino.h>
-#include <math.h>
 
-const int numSamples = 256;
-const int amplitude = 127;  // Amplitude of the sine wave
-const int offset = 128;     // Offset to center the sine wave in the DAC range
+class node {
+   public:
+    int x;
+    int y;
+    node* next;
+    node* prev;
+    node(int x, int y) {
+        this->x = x;
+        this->y = y;
+        this->next = NULL;
+        this->prev = NULL;
+    }
+};
+
+class LinkedList {
+   public:
+    node* head;
+    node* tail;
+    LinkedList() {
+        this->head = NULL;
+        this->tail = NULL;
+    }
+};
+
+LinkedList* pointList = new LinkedList();
+
+// Add a node so that all the points are in the list in x order
+void addNode(LinkedList* list, int x, int y) {
+    node* newNode = new node(x, y);
+    if (list->head == NULL) {
+        // If list is empty, both head and tail point to the new node
+        list->head = newNode;
+        list->tail = newNode;
+    } else {
+        node* iterativeNode = list->head;
+
+        // Find the node that is greater than the new node
+        while (iterativeNode != NULL) {
+            if (iterativeNode->x > newNode->x) {
+                break;
+            }
+            iterativeNode = iterativeNode->next;
+        }
+
+        if (iterativeNode == NULL) {
+            // If the new node is greater than all the nodes in the list
+            // Append the new node to the end of the list
+            newNode->prev = list->tail;
+            list->tail->next = newNode;
+            list->tail = newNode;
+            return;
+        } else {
+            newNode->next = iterativeNode;
+            newNode->prev = iterativeNode->prev;
+            newNode->next->prev = newNode;
+            newNode->prev->next = newNode;
+        }
+    }
+}
 
 const int X_DAC_PIN = 25;
 const int Y_DAC_PIN = 26;
-
-// Define a struct to hold the coordinates
-struct Point {
-    int x;
-    int y;
-};
 
 /*
 settings
@@ -28,25 +77,80 @@ This gives a resolution of 166 by 128 pixels.
 */
 
 void setPixels(int x, int y) {
-    dacWrite(X_DAC_PIN, x);
     dacWrite(Y_DAC_PIN, y);
+    dacWrite(X_DAC_PIN, x);
 }
 
 void setPercentages(int x, int y) { setPixels(x * 1.66, y * 1.28); }
 
-void setup() {}
-
-Point points[] = {{0, 0},     {10, 0},   {20, 0},   {30, 0},   {40, 0},
-                  {50, 0},    {60, 0},   {70, 0},   {80, 0},   {90, 0},
-                  {100, 0},   {100, 10}, {100, 20}, {100, 30}, {100, 40},
-                  {100, 50},  {100, 60}, {100, 70}, {100, 80}, {100, 90},
-                  {100, 100}, {90, 100}, {80, 100}, {70, 100}, {60, 100},
-                  {50, 100},  {40, 100}, {30, 100}, {20, 100}, {10, 100},
-                  {0, 100},   {0, 90},   {0, 80},   {0, 70},   {0, 60},
-                  {0, 50},    {0, 40},   {0, 30},   {0, 20},   {0, 10}};
+void setup() {
+    Serial.begin(9600);
+    addNode(pointList, 0, 0);
+    addNode(pointList, 10, 0);
+    addNode(pointList, 20, 0);
+    addNode(pointList, 30, 0);
+    addNode(pointList, 40, 0);
+    addNode(pointList, 50, 0);
+    addNode(pointList, 60, 0);
+    addNode(pointList, 70, 0);
+    addNode(pointList, 80, 0);
+    addNode(pointList, 90, 0);
+    addNode(pointList, 100, 0);
+    addNode(pointList, 100, 10);
+    addNode(pointList, 100, 20);
+    addNode(pointList, 100, 30);
+    addNode(pointList, 100, 40);
+    addNode(pointList, 100, 50);
+    addNode(pointList, 100, 60);
+    addNode(pointList, 100, 70);
+    addNode(pointList, 100, 80);
+    addNode(pointList, 100, 90);
+    addNode(pointList, 100, 100);
+    addNode(pointList, 90, 100);
+    addNode(pointList, 80, 100);
+    addNode(pointList, 70, 100);
+    addNode(pointList, 60, 100);
+    addNode(pointList, 50, 100);
+    addNode(pointList, 40, 100);
+    addNode(pointList, 30, 100);
+    addNode(pointList, 20, 100);
+    addNode(pointList, 10, 100);
+    addNode(pointList, 0, 100);
+    addNode(pointList, 0, 90);
+    addNode(pointList, 0, 80);
+    addNode(pointList, 0, 70);
+    addNode(pointList, 0, 60);
+    addNode(pointList, 0, 50);
+    addNode(pointList, 0, 40);
+    addNode(pointList, 0, 30);
+    addNode(pointList, 0, 20);
+    addNode(pointList, 0, 10);
+    addNode(pointList, 15, 15);
+}
 
 void loop() {
-    for (int i = 0; i < sizeof(points) / sizeof(points[0]); ++i) {
-        setPercentages(points[i].x, points[i].y);
+    if (Serial.available() > 0) {
+        // Read the serial command
+        String serialCommand = Serial.readStringUntil('\n');
+
+        // Example command format: "ADD_POINT 50 50"
+        if (serialCommand.startsWith("ADD_POINT")) {
+            int x, y;
+            sscanf(serialCommand.c_str(), "ADD_POINT %d %d", &x, &y);
+            addNode(pointList, x, y);
+        }
+    }
+
+    // Serial.println("Points:");
+
+    node* current = pointList->head;
+    while (current != NULL) {
+        setPercentages(current->x, current->y);
+        delayMicroseconds(10);
+        // Serial.print(" x:");
+        // Serial.print(current->x);
+        // Serial.print(" y:");
+        // Serial.println(current->y);
+        current = current->next;
     }
 }
